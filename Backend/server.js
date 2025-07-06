@@ -23,6 +23,9 @@ mongoose.connect(MONGO_URI, {
 
 // Routes
 app.use("/api/inventory", require("./routes/inventoryRoutes"));
+app.use("/api/mills", require("./routes/millRoutes"));
+app.use("/api/users", require("./routes/userRoutes"));
+app.use("/api/orders", require("./routes/orderRoutes"));
 
 // Server
 const PORT = process.env.PORT || 5000;

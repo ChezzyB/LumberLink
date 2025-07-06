@@ -1,7 +1,15 @@
 const mongoose = require("mongoose");
 
 const millSchema = new mongoose.Schema({
-  name: String,
+  millNumber: {
+    type: String,
+    required: true,
+    unique: true // Ensures no duplicate mill numbers
+  },
+  name: {
+    type: String,
+    required: true
+  },
   location: {
     city: String,
     province: String,
@@ -15,9 +23,12 @@ const millSchema = new mongoose.Schema({
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User", // reference to the User model
-    required: true
+    required: false
   },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-module.exports = mongoose.model("Mill", millSchema);
+module.exports = mongoose.model("Mill", millSchema, "mills");

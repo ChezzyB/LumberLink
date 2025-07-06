@@ -66,4 +66,4 @@ const inventorySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model("Inventory", inventorySchema);
+module.exports = mongoose.model("Inventory", inventorySchema, "inventories");
