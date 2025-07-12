@@ -6,8 +6,17 @@ const millController = require("../controllers/millController");
 // CREATE mill
 router.post("/", millController.createMill);
 
-// READ all mills
-router.get("/", millController.getAllMills);
+// READ all mills with optional owner filter
+router.get("/", async (req, res) => {
+  try {
+    const { owner } = req.query;
+    const filter = owner ? { owner } : {};
+    const mills = await Mill.find(filter);
+    res.json(mills);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // READ by MongoDB ObjectId
 router.get("/id/:id", millController.getMillById);
@@ -33,6 +42,5 @@ router.put("/:id/owner", millController.assignOwner);
 
 // DELETE mill
 router.delete("/:id", millController.deleteMill);
-
 
 module.exports = router;

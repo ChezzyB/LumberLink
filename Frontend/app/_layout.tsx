@@ -7,6 +7,8 @@ import React from 'react';
 
 import { ThemeProvider, useStyleTheme } from '../context/ThemeContext';
 import { ConversionProvider } from '../context/ConversionContext';
+import { AuthProvider } from '../context/AuthContext';
+import { MillProvider } from '../context/MillContext';
 
 function InnerLayout() {
   const { theme } = useStyleTheme();
@@ -14,11 +16,13 @@ function InnerLayout() {
   return (
     <NavigationThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}>
       <ConversionProvider>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <MillProvider>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        </MillProvider>
       </ConversionProvider>
     </NavigationThemeProvider>
   );
@@ -32,8 +36,10 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <ThemeProvider>
-      <InnerLayout />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <InnerLayout />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

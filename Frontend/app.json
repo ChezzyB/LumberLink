@@ -39,7 +39,8 @@
       "typedRoutes": true
     },
     "extra": {
-      "weatherApiKey": "774e97346d4bb1c773475855b2324f26"
+      "weatherApiKey": "774e97346d4bb1c773475855b2324f26",
+      "apiBaseUrl": "http://localhost:5000/api"
     }
   }
 }
