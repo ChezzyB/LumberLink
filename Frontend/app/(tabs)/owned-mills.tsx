@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,12 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  SafeAreaView,
+  Platform,
+  StatusBar,
+  KeyboardAvoidingView, // Add this import
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '@/context/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -38,96 +43,99 @@ interface Mill {
 }
 
 export default function OwnedMillsScreen() {
-  const { user, token, fetchOwnedMills, ownedMills } = useContext(AuthContext);
   const { theme } = useStyleTheme();
-  const [isLoading, setIsLoading] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { user, token, ownedMills, fetchOwnedMills } = useContext(AuthContext);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [editingMill, setEditingMill] = useState<Mill | null>(null);
-  const [formData, setFormData] = useState({
-    millNumber: '',
-    name: '',
-    city: '',
-    province: '',
-    latitude: '',
-    longitude: '',
-    phone: '',
-    email: '',
-  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFormLoading, setIsFormLoading] = useState(false);
+  const [millNumber, setMillNumber] = useState('');
+  const [name, setName] = useState('');
+  const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
 
-  useEffect(() => {
-    loadOwnedMills();
-  }, []);
-
-  const loadOwnedMills = async () => {
+  // Memoized functions to prevent unnecessary re-renders
+  const loadOwnedMills = useCallback(async () => {
+    if (isLoading || modalVisible) return;
+    
     setIsLoading(true);
     try {
       await fetchOwnedMills();
-    } catch (error) {
-      console.error('Error loading owned mills:', error);
-      Alert.alert('Error', 'Failed to load owned mills');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchOwnedMills, isLoading, modalVisible]);
 
-  const openCreateModal = () => {
+  const openCreateModal = useCallback(() => {
     setEditingMill(null);
-    setFormData({
-      millNumber: '',
-      name: '',
-      city: '',
-      province: '',
-      latitude: '',
-      longitude: '',
-      phone: '',
-      email: '',
-    });
+    setMillNumber('');
+    setName('');
+    setCity('');
+    setProvince('');
+    setLatitude('');
+    setLongitude('');
+    setPhone('');
+    setEmail('');
     setModalVisible(true);
-  };
+  }, []);
 
-  const openEditModal = (mill: Mill) => {
+  const openEditModal = useCallback((mill: Mill) => {
     setEditingMill(mill);
-    setFormData({
-      millNumber: mill.millNumber,
-      name: mill.name,
-      city: mill.location.city,
-      province: mill.location.province,
-      latitude: mill.location.latitude.toString(),
-      longitude: mill.location.longitude.toString(),
-      phone: mill.contact.phone || '',
-      email: mill.contact.email || '',
-    });
+    setMillNumber(mill.millNumber);
+    setName(mill.name);
+    setCity(mill.location.city);
+    setProvince(mill.location.province);
+    setLatitude(mill.location.latitude.toString());
+    setLongitude(mill.location.longitude.toString());
+    setPhone(mill.contact?.phone || '');
+    setEmail(mill.contact?.email || '');
     setModalVisible(true);
-  };
+  }, []);
+
+  // Only load data on mount, not on every render
+  useEffect(() => {
+    if (user && !modalVisible) { // Only load when modal is closed
+      loadOwnedMills();
+    }
+  }, [user]); // Remove any other dependencies that might trigger during typing
 
   const handleSaveMill = async () => {
-    if (!formData.millNumber || !formData.name || !formData.city || !formData.province) {
+    if (isFormLoading) return; // Prevent multiple saves
+    
+    // Validation
+    if (!millNumber || !name || !city || !province || !latitude || !longitude) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    const latitude = parseFloat(formData.latitude);
-    const longitude = parseFloat(formData.longitude);
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
 
-    if (isNaN(latitude) || isNaN(longitude)) {
+    if (isNaN(lat) || isNaN(lon)) {
       Alert.alert('Error', 'Please enter valid latitude and longitude');
       return;
     }
 
-    setIsLoading(true);
+    setIsFormLoading(true);
     try {
       const millData = {
-        millNumber: formData.millNumber,
-        name: formData.name,
+        millNumber,
+        name,
         location: {
-          city: formData.city,
-          province: formData.province,
-          latitude,
-          longitude,
+          city,
+          province,
+          latitude: lat,
+          longitude: lon,
         },
         contact: {
-          phone: formData.phone || undefined,
-          email: formData.email || undefined,
+          phone: phone || undefined,
+          email: email || undefined,
         },
         owner: user?._id,
       };
@@ -152,18 +160,14 @@ export default function OwnedMillsScreen() {
         throw new Error(errorData.error || `Failed to ${editingMill ? 'update' : 'create'} mill`);
       }
 
-      Alert.alert(
-        'Success',
-        `Mill ${editingMill ? 'updated' : 'created'} successfully`,
-        [{ text: 'OK', onPress: () => setModalVisible(false) }]
-      );
-
-      await loadOwnedMills();
+      setModalVisible(false);
+      await loadOwnedMills(); // Only reload after successful save
+      Alert.alert('Success', `Mill ${editingMill ? 'updated' : 'created'} successfully`);
     } catch (error) {
       console.error('Error saving mill:', error);
-      Alert.alert('Error', (error instanceof Error && error.message) ? error.message : 'Failed to save mill');
+      Alert.alert('Error', `Failed to ${editingMill ? 'update' : 'create'} mill`);
     } finally {
-      setIsLoading(false);
+      setIsFormLoading(false);
     }
   };
 
@@ -204,7 +208,7 @@ export default function OwnedMillsScreen() {
     }
   };
 
-  const renderMillItem = ({ item }: { item: Mill }) => (
+  const renderMillItem = useCallback(({ item }: { item: Mill }) => (
     <View style={[styles.millCard, { 
       backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
       borderColor: theme === 'dark' ? '#555' : '#ddd'
@@ -218,11 +222,12 @@ export default function OwnedMillsScreen() {
         {item.location.city}, {item.location.province}
       </ThemedText>
       
-      {item.contact.phone && (
+      {/* Fix: Add null checks for contact object */}
+      {item.contact?.phone && (
         <ThemedText style={styles.contact}>Phone: {item.contact.phone}</ThemedText>
       )}
       
-      {item.contact.email && (
+      {item.contact?.email && (
         <ThemedText style={styles.contact}>Email: {item.contact.email}</ThemedText>
       )}
       
@@ -242,210 +247,257 @@ export default function OwnedMillsScreen() {
         </TouchableOpacity>
       </View>
     </View>
+  ), [theme, openEditModal, handleDeleteMill]);
+
+  // Calculate safe area padding with fallbacks
+  const getSafeAreaStyle = () => {
+    if (Platform.OS === 'ios') {
+      // On iOS, SafeAreaView handles everything, but we can still use insets for fine control
+      return {
+        backgroundColor: theme === 'dark' ? '#000' : '#fff',
+      };
+    } else {
+      // On Android, use insets with fallbacks
+      return {
+        backgroundColor: theme === 'dark' ? '#000' : '#fff',
+        paddingTop: insets.top || StatusBar.currentHeight || 24, // Fallback chain
+        paddingBottom: insets.bottom || 0,
+        paddingLeft: insets.left || 0,
+        paddingRight: insets.right || 0,
+      };
+    }
+  };
+
+  const SafeContainer = ({ children, style }: { children: React.ReactNode; style?: any }) => {
+    if (Platform.OS === 'ios') {
+      return (
+        <SafeAreaView style={[styles.safeContainer, getSafeAreaStyle(), style]}>
+          {children}
+        </SafeAreaView>
+      );
+    } else {
+      return (
+        <View style={[styles.safeContainer, getSafeAreaStyle(), style]}>
+          {children}
+        </View>
+      );
+    }
+  };
+
+  // Replace the entire useMemo section with direct JSX:
+  const modalContent = (
+    <Modal
+      visible={modalVisible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <SafeContainer>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.modalContainer, { backgroundColor: theme === 'dark' ? '#000' : '#fff' }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={[styles.cancelButton, { color: theme === 'dark' ? '#fff' : '#007AFF' }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <ThemedText type="subtitle">
+                {editingMill ? 'Edit Mill' : 'Add New Mill'}
+              </ThemedText>
+              <TouchableOpacity onPress={handleSaveMill} disabled={isFormLoading}>
+                <Text style={[styles.saveButton, { 
+                  color: isFormLoading ? '#999' : '#007AFF',
+                  opacity: isFormLoading ? 0.6 : 1 
+                }]}>
+                  {isFormLoading ? 'Saving...' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              style={styles.formContainer}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Form fields with individual memoization */}
+              <FormField
+                label="Mill Number *"
+                value={millNumber}
+                onChangeText={setMillNumber} // Direct setter - no object spread
+                placeholder="Enter mill number"
+                theme={theme}
+              />
+
+              <FormField
+                label="Mill Name *"
+                value={name}
+                onChangeText={setName} // Direct setter - no object spread
+                placeholder="Enter mill name"
+                theme={theme}
+              />
+
+              <FormField
+                label="City *"
+                value={city}
+                onChangeText={setCity} // Direct setter - no object spread
+                placeholder="Enter city"
+                theme={theme}
+              />
+
+              <FormField
+                label="Province *"
+                value={province}
+                onChangeText={setProvince} // Direct setter - no object spread
+                placeholder="Enter province"
+                theme={theme}
+              />
+
+              <View style={styles.formRow}>
+                <View style={styles.formColumn}>
+                  <FormField
+                    label="Latitude *"
+                    value={latitude}
+                    onChangeText={setLatitude} // Direct setter - no object spread
+                    placeholder="50.6761"
+                    keyboardType="numeric"
+                    theme={theme}
+                  />
+                </View>
+                <View style={styles.formColumn}>
+                  <FormField
+                    label="Longitude *"
+                    value={longitude}
+                    onChangeText={setLongitude} // Direct setter - no object spread
+                    placeholder="-120.3408"
+                    keyboardType="numeric"
+                    theme={theme}
+                  />
+                </View>
+              </View>
+
+              <FormField
+                label="Phone"
+                value={phone}
+                onChangeText={setPhone} // Direct setter - no object spread
+                placeholder="Enter phone number"
+                keyboardType="phone-pad"
+                theme={theme}
+              />
+
+              <FormField
+                label="Email"
+                value={email}
+                onChangeText={setEmail} // Direct setter - no object spread
+                placeholder="Enter email address"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                theme={theme}
+              />
+
+              <View style={{ height: 50 }} />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeContainer>
+    </Modal>
   );
+
+  const { container, safeContainer, header, addButton, addButtonText, loadingContainer, emptyContainer, emptyText, listContainer, millCard, millHeader, millName, millNumber: millNumberStyle, location, contact, buttonContainer, actionButton, editButton, deleteButton, buttonText, modalContainer, modalHeader, cancelButton, saveButton, formContainer, formGroup, formRow, formColumn, label, input } = styles;
 
   if (!user) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText>Please log in to view your mills.</ThemedText>
-      </ThemedView>
+      <SafeContainer>
+        <ThemedView style={container}>
+          <ThemedText>Please log in to view your mills.</ThemedText>
+        </ThemedView>
+      </SafeContainer>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="title">My Mills</ThemedText>
-        <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
-          <Text style={styles.addButtonText}>+ Add Mill</Text>
-        </TouchableOpacity>
-      </View>
-
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme === 'dark' ? 'white' : 'black'} />
-        </View>
-      )}
-
-      {ownedMills.length === 0 && !isLoading ? (
-        <View style={styles.emptyContainer}>
-          <ThemedText style={styles.emptyText}>
-            You don't own any mills yet.
-          </ThemedText>
-          <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
-            <Text style={styles.addButtonText}>Add Your First Mill</Text>
+    <SafeContainer>
+      <ThemedView style={container}>
+        <View style={header}>
+          <ThemedText type="title">My Mills</ThemedText>
+          <TouchableOpacity style={addButton} onPress={openCreateModal}>
+            <Text style={addButtonText}>+ Add Mill</Text>
           </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          data={ownedMills}
-          renderItem={renderMillItem}
-          keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContainer}
-          refreshing={isLoading}
-          onRefresh={loadOwnedMills}
-        />
-      )}
 
-      {/* Create/Edit Mill Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <View style={[styles.modalContainer, { backgroundColor: theme === 'dark' ? '#000' : '#fff' }]}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={[styles.cancelButton, { color: theme === 'dark' ? '#fff' : '#007AFF' }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <ThemedText type="subtitle">
-              {editingMill ? 'Edit Mill' : 'Add New Mill'}
+        {isLoading && (
+          <View style={loadingContainer}>
+            <ActivityIndicator size="large" color={theme === 'dark' ? 'white' : 'black'} />
+          </View>
+        )}
+
+        {ownedMills.length === 0 && !isLoading ? (
+          <View style={emptyContainer}>
+            <ThemedText style={emptyText}>
+              You don't own any mills yet.
             </ThemedText>
-            <TouchableOpacity onPress={handleSaveMill} disabled={isLoading}>
-              <Text style={[styles.saveButton, { 
-                color: isLoading ? '#999' : '#007AFF',
-                opacity: isLoading ? 0.6 : 1 
-              }]}>
-                {isLoading ? 'Saving...' : 'Save'}
-              </Text>
+            <TouchableOpacity style={addButton} onPress={openCreateModal}>
+              <Text style={addButtonText}>Add Your First Mill</Text>
             </TouchableOpacity>
           </View>
+        ) : (
+          <FlatList
+            data={ownedMills}
+            renderItem={renderMillItem}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={listContainer}
+            refreshing={isLoading}
+            onRefresh={modalVisible ? undefined : loadOwnedMills} // Don't refresh when modal is open
+          />
+        )}
 
-          <ScrollView style={styles.formContainer}>
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              Mill Number *
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.millNumber}
-              onChangeText={(text) => setFormData({ ...formData, millNumber: text })}
-              placeholder="Enter mill number"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-            />
-
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              Mill Name *
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-              placeholder="Enter mill name"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-            />
-
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              City *
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.city}
-              onChangeText={(text) => setFormData({ ...formData, city: text })}
-              placeholder="Enter city"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-            />
-
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              Province *
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.province}
-              onChangeText={(text) => setFormData({ ...formData, province: text })}
-              placeholder="Enter province"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-            />
-
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              Latitude *
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.latitude}
-              onChangeText={(text) => setFormData({ ...formData, latitude: text })}
-              placeholder="Enter latitude"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-              keyboardType="numeric"
-            />
-
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              Longitude *
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.longitude}
-              onChangeText={(text) => setFormData({ ...formData, longitude: text })}
-              placeholder="Enter longitude"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-              keyboardType="numeric"
-            />
-
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              Phone
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.phone}
-              onChangeText={(text) => setFormData({ ...formData, phone: text })}
-              placeholder="Enter phone number"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-              keyboardType="phone-pad"
-            />
-
-            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
-              Email
-            </Text>
-            <TextInput
-              style={[styles.input, {
-                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-                color: theme === 'dark' ? '#fff' : '#000',
-                borderColor: theme === 'dark' ? '#555' : '#ddd'
-              }]}
-              value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
-              placeholder="Enter email"
-              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </ScrollView>
-        </View>
-      </Modal>
-    </ThemedView>
+        {modalContent}
+      </ThemedView>
+    </SafeContainer>
   );
 }
 
+// Create a memoized FormField component
+const FormField = React.memo(({ 
+  label, 
+  value, 
+  onChangeText, 
+  placeholder, 
+  keyboardType = 'default', 
+  autoCapitalize = 'sentences',
+  theme 
+}: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  keyboardType?: any;
+  autoCapitalize?: any;
+  theme: string;
+}) => (
+  <View style={styles.formGroup}>
+    <ThemedText style={styles.label}>{label}</ThemedText>
+    <TextInput
+      style={[styles.input, { 
+        backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+        color: theme === 'dark' ? '#fff' : '#000',
+        borderColor: theme === 'dark' ? '#555' : '#ddd'
+      }]}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      keyboardType={keyboardType}
+      autoCapitalize={autoCapitalize}
+      placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+    />
+  </View>
+));
+
 const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     padding: 16,
@@ -458,7 +510,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
@@ -475,12 +527,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
   },
   emptyText: {
+    fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-    fontSize: 16,
+    opacity: 0.7,
   },
   listContainer: {
     paddingBottom: 20,
@@ -507,21 +559,21 @@ const styles = StyleSheet.create({
   location: {
     fontSize: 14,
     marginBottom: 4,
+    opacity: 0.8,
   },
   contact: {
     fontSize: 12,
-    opacity: 0.7,
     marginBottom: 2,
+    opacity: 0.6,
   },
   buttonContainer: {
     flexDirection: 'row',
-    marginTop: 12,
     gap: 8,
+    marginTop: 8,
   },
   actionButton: {
     flex: 1,
     paddingVertical: 8,
-    paddingHorizontal: 12,
     borderRadius: 6,
     alignItems: 'center',
   },
@@ -533,7 +585,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 14,
     fontWeight: 'bold',
   },
   modalContainer: {
@@ -545,7 +596,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#ddd',
   },
   cancelButton: {
     fontSize: 16,
@@ -558,11 +609,21 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  formGroup: {
+    marginBottom: 20,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
+  },
+  formColumn: {
+    flex: 1,
+  },
   label: {
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
-    marginTop: 16,
   },
   input: {
     height: 50,

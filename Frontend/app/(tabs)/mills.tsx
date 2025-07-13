@@ -153,32 +153,50 @@ export default function MillsScreen() {
     Alert.alert('Mill Selected', `Selected: ${mill.name}`);
   };
 
-  const renderMill = ({ item }: { item: Mill }) => (
-    <TouchableOpacity 
+  const renderMillItem = ({ item }: { item: Mill }) => (
+    <TouchableOpacity
       style={[
-        styles.millCard, 
-        { 
+        styles.millCard,
+        {
           backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
-          borderColor: selectedMill?._id === item._id ? '#007AFF' : (theme === 'dark' ? '#555' : '#ddd')
-        }
-      ]} 
+          borderColor: theme === 'dark' ? '#555' : '#ddd',
+          borderWidth: selectedMill?._id === item._id ? 2 : 1,
+          borderLeftColor: selectedMill?._id === item._id ? '#007AFF' : (theme === 'dark' ? '#555' : '#ddd'),
+          borderLeftWidth: selectedMill?._id === item._id ? 4 : 1,
+        },
+      ]}
       onPress={() => selectMill(item)}
     >
-      <ThemedText type="defaultSemiBold" style={styles.millName}>{item.name}</ThemedText>
-      <ThemedText style={styles.millDetails}>Mill #{item.millNumber}</ThemedText>
-      <ThemedText style={styles.millDetails}>
+      <View style={styles.millHeader}>
+        <ThemedText type="subtitle" style={styles.millName}>
+          {item.name}
+        </ThemedText>
+        <ThemedText style={styles.millNumber}>#{item.millNumber}</ThemedText>
+      </View>
+
+      <ThemedText style={styles.location}>
         {item.location.city}, {item.location.province}
       </ThemedText>
-      {item.distance && (
+
+      {item.distance !== undefined && (
         <ThemedText style={styles.distance}>
           {item.distance.toFixed(1)} km away
         </ThemedText>
       )}
-      {item.contact.phone && (
+
+      {/* Fix: Add null checks for contact object */}
+      {item.contact?.phone && (
         <ThemedText style={styles.contact}>📞 {item.contact.phone}</ThemedText>
       )}
-      {item.contact.email && (
+
+      {item.contact?.email && (
         <ThemedText style={styles.contact}>📧 {item.contact.email}</ThemedText>
+      )}
+
+      {selectedMill?._id === item._id && (
+        <View style={styles.selectedIndicator}>
+          <Text style={styles.selectedText}>✓ Selected</Text>
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -231,7 +249,7 @@ export default function MillsScreen() {
 
       <FlatList
         data={filteredMills}
-        renderItem={renderMill}
+        renderItem={renderMillItem}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -285,11 +303,22 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 2,
   },
+  millHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
   millName: {
     fontSize: 16,
     marginBottom: 5,
   },
-  millDetails: {
+  millNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#007AFF',
+  },
+  location: {
     fontSize: 14,
     marginBottom: 2,
   },
@@ -302,5 +331,19 @@ const styles = StyleSheet.create({
   contact: {
     fontSize: 12,
     marginTop: 2,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  selectedText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

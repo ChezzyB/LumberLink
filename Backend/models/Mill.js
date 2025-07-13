@@ -1,34 +1,61 @@
 const mongoose = require("mongoose");
 
-const millSchema = new mongoose.Schema({
-  millNumber: {
-    type: String,
-    required: true,
-    unique: true // Ensures no duplicate mill numbers
+const millSchema = new mongoose.Schema(
+  {
+    millNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    },
+    location: {
+      city: {
+        type: String,
+        required: true,
+      },
+      province: {
+        type: String,
+        required: true,
+      },
+      latitude: {
+        type: Number,
+        required: true,
+      },
+      longitude: {
+        type: Number,
+        required: true,
+      },
+    },
+    contact: {
+      phone: {
+        type: String,
+        default: null,
+      },
+      email: {
+        type: String,
+        default: null,
+      },
+    },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  name: {
-    type: String,
-    required: true
-  },
-  location: {
-    city: String,
-    province: String,
-    latitude: Number,
-    longitude: Number
-  },
-  contact: {
-    phone: String,
-    email: String
-  },
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User", // reference to the User model
-    required: false
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  {
+    timestamps: true,
   }
+);
+
+// Add a default empty contact object if it doesn't exist
+millSchema.pre("save", function (next) {
+  if (!this.contact) {
+    this.contact = {};
+  }
+  next();
 });
 
-module.exports = mongoose.model("Mill", millSchema, "mills");
+module.exports = mongoose.model("Mill", millSchema);

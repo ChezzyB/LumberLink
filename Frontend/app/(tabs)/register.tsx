@@ -54,11 +54,12 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Create Account</ThemedText>
-      
-      <TextInput
-        style={[styles.input, { 
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme === 'dark' ? '#000' : '#fff' }]}>
+      <ThemedView style={styles.container}>
+        <ThemedText type="title" style={styles.title}>Create Account</ThemedText>
+
+        <TextInput
+          style={[styles.input, {
           backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
           color: theme === 'dark' ? '#fff' : '#000',
           borderColor: theme === 'dark' ? '#555' : '#ddd'
@@ -126,6 +127,7 @@ export default function RegisterScreen() {
         </ThemedText>
       </TouchableOpacity>
     </ThemedView>
+    </SafeAreaView>
   );
 }
 

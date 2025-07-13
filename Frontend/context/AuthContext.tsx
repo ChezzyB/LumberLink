@@ -141,14 +141,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(errorData.error || 'Registration failed');
       }
 
-      const data = await response.json();
+      // DON'T auto-login after registration
+      // Just return success - user needs to login manually
       
-      // Store auth data
-      await AsyncStorage.setItem('authToken', data.token);
-      await AsyncStorage.setItem('userData', JSON.stringify(data.user));
-      
-      setToken(data.token);
-      setUser(data.user);
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -184,8 +179,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchOwnedMills = async () => {
-    if (!token || !user) return;
-    
+    if (!user || !token) return;
+
     try {
       const response = await fetch(`${API_BASE_URL}/mills?owner=${user._id}`, {
         headers: {
@@ -193,10 +188,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (response.ok) {
         const mills = await response.json();
+        console.log('Owned mills:', mills); // Debug log
         setOwnedMills(mills);
+      } else {
+        console.error('Failed to fetch owned mills');
       }
     } catch (error) {
       console.error('Error fetching owned mills:', error);
@@ -252,6 +250,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
   };
+
+  // Fetch owned mills when user or token changes
+  useEffect(() => {
+    if (user && token) {
+      fetchOwnedMills();
+    }
+  }, [user, token]);
 
   return (
     <AuthContext.Provider value={{ 

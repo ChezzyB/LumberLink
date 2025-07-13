@@ -36,7 +36,7 @@ export default function LoginScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Login to LumberLink</ThemedText>
+      <ThemedText type="title" style={styles.title}>Welcome to LumberLink</ThemedText>
       
       <TextInput
         style={[styles.input, { 

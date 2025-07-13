@@ -54,12 +54,15 @@ export default function InventoryScreen() {
   const { theme } = useStyleTheme();
 
   useEffect(() => {
+    console.log('Selected mill:', selectedMill);
+    console.log('User:', user);
     if (selectedMill) {
       fetchInventory();
     }
   }, [selectedMill]);
 
   const fetchInventory = async () => {
+    console.log('Fetching inventory for mill:', selectedMill?._id);
     if (!selectedMill) return;
 
     try {
@@ -73,10 +76,12 @@ export default function InventoryScreen() {
 
       if (response.ok) {
         const allInventory = await response.json();
-        // Filter inventory for selected mill
+        console.log('All inventory:', allInventory);
+        // Filter inventory for selected mill using millId
         const millInventory = allInventory.filter(
           (item: InventoryItem) => item.millId === selectedMill._id
         );
+        console.log('Filtered inventory:', millInventory);
         setInventory(millInventory);
       } else {
         Alert.alert('Error', 'Failed to fetch inventory');

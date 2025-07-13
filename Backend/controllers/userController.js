@@ -2,6 +2,11 @@ const User = require("../models/User");
 
 exports.createUser = async (req, res) => {
   try {
+    // Normalize email if provided
+    if (req.body.email) {
+      req.body.email = req.body.email.toLowerCase().trim();
+    }
+    
     const user = new User(req.body); // add validation + password hashing if needed
     await user.save();
     res.status(201).json(user);
@@ -22,6 +27,11 @@ exports.getUser = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
   try {
+    // Normalize email if provided
+    if (req.body.email) {
+      req.body.email = req.body.email.toLowerCase().trim();
+    }
+    
     const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(user);

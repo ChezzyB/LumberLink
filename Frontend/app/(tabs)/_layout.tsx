@@ -1,14 +1,25 @@
-import { Tabs } from 'expo-router';
-import { useContext } from 'react';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { Tabs, useRouter } from 'expo-router';
+import { useContext, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '@/context/AuthContext';
 
 export default function TabsLayout() {
   const { user, ownedMills } = useContext(AuthContext);
+  const router = useRouter();
+
+  // Handle automatic redirection based on auth state
+  useEffect(() => {
+    if (user) {
+      // If user is authenticated and we're on login/register, redirect to mills
+      const currentPath = router.pathname;
+      if (currentPath === '/login' || currentPath === '/register') {
+        router.replace('/mills');
+      }
+    }
+  }, [user, router]);
 
   return (
     <Tabs screenOptions={{ headerShown: false }}>
-      {/* Always define all screens, but conditionally hide them */}
       <Tabs.Screen
         name="index"
         options={{
@@ -20,8 +31,10 @@ export default function TabsLayout() {
         name="login"
         options={{
           title: 'Login',
-          tabBarIcon: ({ color }) => <IconSymbol name="person.fill" size={28} color={color} />,
-          href: user ? null : '/login', // Hide when authenticated
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size || 24} color={color} />
+          ),
+          href: user ? null : '/login',
         }}
       />
       
@@ -29,8 +42,10 @@ export default function TabsLayout() {
         name="register"
         options={{
           title: 'Register',
-          tabBarIcon: ({ color }) => <IconSymbol name="person.badge.plus.fill" size={28} color={color} />,
-          href: user ? null : '/register', // Hide when authenticated
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-add" size={size || 24} color={color} />
+          ),
+          href: user ? null : '/register',
         }}
       />
       
@@ -38,8 +53,10 @@ export default function TabsLayout() {
         name="mills"
         options={{
           title: 'Mills',
-          tabBarIcon: ({ color }) => <IconSymbol name="building.2.fill" size={28} color={color} />,
-          href: !user ? null : '/mills', // Hide when not authenticated
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="business" size={size || 24} color={color} />
+          ),
+          href: !user ? null : '/mills',
         }}
       />
       
@@ -47,8 +64,10 @@ export default function TabsLayout() {
         name="inventory"
         options={{
           title: 'Inventory',
-          tabBarIcon: ({ color }) => <IconSymbol name="list.bullet" size={28} color={color} />,
-          href: !user ? null : '/inventory', // Hide when not authenticated
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list" size={size || 24} color={color} />
+          ),
+          href: !user ? null : '/inventory',
         }}
       />
       
@@ -56,8 +75,10 @@ export default function TabsLayout() {
         name="orders"
         options={{
           title: 'Orders',
-          tabBarIcon: ({ color }) => <IconSymbol name="cart.fill" size={28} color={color} />,
-          href: !user ? null : '/orders', // Hide when not authenticated
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cart" size={size || 24} color={color} />
+          ),
+          href: !user ? null : '/orders',
         }}
       />
       
@@ -65,17 +86,10 @@ export default function TabsLayout() {
         name="account"
         options={{
           title: 'Account',
-          tabBarIcon: ({ color }) => <IconSymbol name="person.crop.circle.fill" size={28} color={color} />,
-          href: !user ? null : '/account', // Hide when not authenticated
-        }}
-      />
-      
-      <Tabs.Screen
-        name="+not-found"
-        options={{
-          title: 'Not Found',
-          tabBarIcon: ({ color }) => <IconSymbol name="exclamationmark.triangle.fill" size={28} color={color} />,
-          href: !user ? null : '/not-found', // Hide when not authenticated
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle" size={size || 24} color={color} />
+          ),
+          href: !user ? null : '/account',
         }}
       />
 
@@ -83,8 +97,10 @@ export default function TabsLayout() {
         name="owned-mills"
         options={{
           title: 'My Mills',
-          tabBarIcon: ({ color }) => <IconSymbol name="building.2.crop.circle.fill" size={28} color={color} />,
-          href: (!user || ownedMills.length === 0) ? null : '/owned-mills', // Hide when not authenticated or no owned mills
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="business-outline" size={size || 24} color={color} />
+          ),
+          href: (!user || ownedMills.length === 0) ? null : '/owned-mills',
         }}
       />
     </Tabs>

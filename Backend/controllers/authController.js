@@ -9,9 +9,12 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
+    // Normalize email to lowercase
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check if user already exists
     const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+      $or: [{ email: normalizedEmail }, { username }] 
     });
     
     if (existingUser) {
@@ -27,7 +30,7 @@ exports.register = async (req, res) => {
     // Create user
     const user = new User({
       username,
-      email,
+      email: normalizedEmail,
       passwordHash
     });
 
@@ -40,18 +43,15 @@ exports.register = async (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    // Return user data (excluding password hash)
-    const userData = {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt
-    };
-
     res.status(201).json({
-      message: "User registered successfully",
-      user: userData,
-      token
+      message: "User created successfully",
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt
+      }
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -63,16 +63,27 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Normalize email to lowercase
+    const normalizedEmail = email.toLowerCase().trim();
+
+    console.log("Login attempt for email:", normalizedEmail); // Debug log
+
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      console.log("User not found for email:", normalizedEmail); // Debug log
+      return res.status(400).json({ error: "Invalid credentials" });
     }
+
+    console.log("User found:", user.username); // Debug log
 
     // Check password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    console.log("Password valid:", isPasswordValid); // Debug log
+    
     if (!isPasswordValid) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      console.log("Invalid password for user:", normalizedEmail); // Debug log
+      return res.status(400).json({ error: "Invalid credentials" });
     }
 
     // Generate JWT token
@@ -82,18 +93,17 @@ exports.login = async (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    // Return user data (excluding password hash)
-    const userData = {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt
-    };
+    console.log("Login successful for user:", normalizedEmail); // Debug log
 
     res.json({
       message: "Login successful",
-      user: userData,
-      token
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt
+      }
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -102,15 +112,15 @@ exports.login = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-  // With JWT, logout is handled client-side by removing the token
-  // You could implement token blacklisting here if needed
-  res.json({ message: "Logout successful" });
+  // Since we're using JWT, logout is handled client-side by removing the token
+  res.json({ message: "Logged out successfully" });
 };
 
 exports.verifyToken = async (req, res) => {
   try {
-    // User is already verified by authMiddleware
-    const user = await User.findById(req.userId).select('-passwordHash');
+    const userId = req.userId; // Set by authMiddleware
+    const user = await User.findById(userId).select('-passwordHash');
+    
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
