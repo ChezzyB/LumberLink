@@ -141,7 +141,7 @@ export default function OrdersScreen() {
   const cancelOrder = async (orderId: string) => {
     Alert.alert(
       'Cancel Order',
-      'Are you sure you want to cancel this order?',
+      'Are you sure you want to cancel this order? The items will be returned to inventory.',
       [
         { text: 'No', style: 'cancel' },
         { 
@@ -149,8 +149,9 @@ export default function OrdersScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
-                method: 'DELETE',
+              // Use the cancel endpoint instead of delete
+              const response = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
+                method: 'PUT',  // Changed from DELETE to PUT
                 headers: {
                   'Authorization': `Bearer ${token}`,
                   'Content-Type': 'application/json',
@@ -158,10 +159,15 @@ export default function OrdersScreen() {
               });
 
               if (response.ok) {
-                Alert.alert('Success', 'Order cancelled successfully');
-                fetchOrders(); // Refresh orders
+                const result = await response.json();
+                Alert.alert(
+                  'Success', 
+                  `Order cancelled successfully! ${result.message || 'Items returned to inventory.'}`
+                );
+                fetchOrders(); // Refresh orders to show updated status
               } else {
-                Alert.alert('Error', 'Failed to cancel order');
+                const errorData = await response.json();
+                Alert.alert('Error', errorData.error || 'Failed to cancel order');
               }
             } catch (error) {
               console.error('Error cancelling order:', error);
@@ -245,6 +251,7 @@ export default function OrdersScreen() {
           Total: ${item.totalAmount.toFixed(2)}
         </ThemedText>
         
+        {/* Only show cancel button for pending orders */}
         {item.status === 'pending' && (
           <TouchableOpacity
             style={styles.cancelButton}
