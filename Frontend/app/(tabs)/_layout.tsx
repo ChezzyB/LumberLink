@@ -81,17 +81,6 @@ export default function TabsLayout() {
           href: !user ? null : '/orders',
         }}
       />
-      
-      <Tabs.Screen
-        name="account"
-        options={{
-          title: 'Account',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle" size={size || 24} color={color} />
-          ),
-          href: !user ? null : '/account',
-        }}
-      />
 
       <Tabs.Screen
         name="owned-mills"
@@ -101,8 +90,19 @@ export default function TabsLayout() {
             <Ionicons name="business-outline" size={size || 24} color={color} />
           ),
           href: (!user || ownedMills.length === 0) ? null : '/owned-mills',
-        }}
+        }}        
       />
+
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: 'Account',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle" size={size || 24} color={color} />
+          ),
+          href: !user ? null : '/account',
+        }}
+      />      
     </Tabs>
   );
 }

@@ -54,6 +54,14 @@ export default function OrdersScreen() {
   const fetchOrders = async () => {
     if (!user) return;
 
+    console.log('=== ORDERS DEBUG ===');
+    console.log('Current logged in user:', user);
+    console.log('Current user ID:', user._id);
+    console.log('Current user email:', user.email);
+    console.log('Expected user ID for Kristen:', '68745d5f2f0b8be487c35d06');
+    console.log('Chesney user ID (should NOT match):', '6872e6dc3057f00c9a3a23d8');
+    console.log('API call URL:', `${API_BASE_URL}/orders/user/${user._id}`);
+
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE_URL}/orders/user/${user._id}`, {
@@ -63,12 +71,28 @@ export default function OrdersScreen() {
         },
       });
 
+      console.log('Response status:', response.status);
+
       if (response.ok) {
         const ordersData = await response.json();
+        console.log('Raw orders response:', ordersData);
+        console.log('Number of orders returned:', ordersData.length);
+        
+        // Log each order's userId
+        ordersData.forEach((order: Order, index: number) => {
+          console.log(`Order ${index + 1}:`, {
+            orderId: order._id,
+            userId: order.userId,
+            isCurrentUser: order.userId === user._id
+          });
+        });
+        
         setOrders(ordersData.sort((a: Order, b: Order) => 
           new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime()
         ));
       } else {
+        const errorText = await response.text();
+        console.log('Error response:', errorText);
         Alert.alert('Error', 'Failed to fetch orders');
       }
     } catch (error) {

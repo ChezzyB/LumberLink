@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { Text, TextInput, TouchableOpacity, Alert, StyleSheet, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
@@ -132,6 +132,10 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    paddingTop: 50,
+  },
   container: {
     flex: 1,
     padding: 20,
