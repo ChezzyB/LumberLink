@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator 
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // Add this import
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import { AuthContext } from '@/context/AuthContext';
@@ -46,20 +47,11 @@ export default function MillsScreen() {
   const [maxDistance, setMaxDistance] = useState('50');
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
   const { selectedMill, setSelectedMill } = useMill();
   const { theme } = useStyleTheme();
 
-  useEffect(() => {
-    fetchMills();
-    getCurrentLocation();
-  }, []);
-
-  useEffect(() => {
-    filterMills();
-  }, [mills, searchCity, maxDistance, userLocation]);
-
-  const getCurrentLocation = async () => {
+  const getCurrentLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -75,10 +67,22 @@ export default function MillsScreen() {
     } catch (error) {
       console.error('Error getting location:', error);
     }
-  };
+  }, []);
 
-  const fetchMills = async () => {
+  const fetchMills = useCallback(async () => {
+    if (!user || !token) {
+      console.log('No user or token found, clearing mills');
+      setMills([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log('=== MILLS DEBUG ===');
+    console.log('Current user:', user.email);
+    console.log('Fetching mills...');
+
     try {
+      setLoading(true);
       const response = await fetch(`${API_BASE_URL}/mills`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -86,8 +90,11 @@ export default function MillsScreen() {
         },
       });
 
+      console.log('Mills response status:', response.status);
+
       if (response.ok) {
         const millsData = await response.json();
+        console.log('Received mills:', millsData.length);
         setMills(millsData);
       } else {
         Alert.alert('Error', 'Failed to fetch mills');
@@ -98,9 +105,9 @@ export default function MillsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, token]);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; // Radius of the Earth in kilometers
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -111,9 +118,9 @@ export default function MillsScreen() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
     return distance;
-  };
+  }, []);
 
-  const filterMills = () => {
+  const filterMills = useCallback(() => {
     let filtered = [...mills];
 
     // Filter by city if search term is provided
@@ -146,12 +153,51 @@ export default function MillsScreen() {
     }
 
     setFilteredMills(filtered);
-  };
+  }, [mills, searchCity, maxDistance, userLocation, calculateDistance]);
 
-  const selectMill = (mill: Mill) => {
+  // This runs every time the user changes (login/logout/switch users)
+  useEffect(() => {
+    console.log('User changed, fetching mills...');
+    fetchMills();
+    getCurrentLocation();
+  }, [fetchMills, getCurrentLocation]);
+
+  // This runs every time the Mills tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Mills tab focused, refreshing data...');
+      fetchMills();
+    }, [fetchMills])
+  );
+
+  // Clear mills when user logs out
+  useEffect(() => {
+    if (!user) {
+      console.log('User logged out, clearing mills');
+      setMills([]);
+      setFilteredMills([]);
+      setSelectedMill(null);
+    }
+  }, [user, setSelectedMill]);
+
+  // Add this useEffect to immediately clear mills when user changes
+  useEffect(() => {
+    if (user) {
+      console.log('User changed to:', user.email);
+      setMills([]); // Clear old mills immediately
+      setFilteredMills([]);
+      setLoading(true); // Show loading state
+    }
+  }, [user?._id]); // Only trigger when user ID actually changes
+
+  useEffect(() => {
+    filterMills();
+  }, [filterMills]);
+
+  const selectMill = useCallback((mill: Mill) => {
     setSelectedMill(mill);
     Alert.alert('Mill Selected', `Selected: ${mill.name}`);
-  };
+  }, [setSelectedMill]);
 
   const renderMillItem = ({ item }: { item: Mill }) => (
     <TouchableOpacity

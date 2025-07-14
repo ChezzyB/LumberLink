@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { 
   View, 
   FlatList, 
@@ -7,6 +7,7 @@ import {
   Alert, 
   ActivityIndicator 
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // Add this import
 import Constants from 'expo-constants';
 import { AuthContext } from '@/context/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
@@ -47,12 +48,14 @@ export default function OrdersScreen() {
   const { user, token } = useContext(AuthContext);
   const { theme } = useStyleTheme();
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
-    if (!user) return;
+  // Remove the old useEffect and replace with this:
+  const fetchOrders = useCallback(async () => {
+    if (!user) {
+      console.log('No user found, clearing orders');
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
 
     console.log('=== ORDERS DEBUG ===');
     console.log('Current logged in user:', user);
@@ -102,7 +105,38 @@ export default function OrdersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user, token]); // Dependencies ensure it re-runs when user changes
+
+  // This runs every time the user changes (login/logout/switch users)
+  useEffect(() => {
+    console.log('User changed, fetching orders...');
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // This runs every time the Orders tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Orders tab focused, refreshing data...');
+      fetchOrders();
+    }, [fetchOrders])
+  );
+
+  // Clear orders when user logs out
+  useEffect(() => {
+    if (!user) {
+      console.log('User logged out, clearing orders');
+      setOrders([]);
+    }
+  }, [user]);
+
+  // Add this useEffect to immediately clear orders when user changes
+  useEffect(() => {
+    if (user) {
+      console.log('User changed to:', user.email);
+      setOrders([]); // Clear old orders immediately
+      setLoading(true); // Show loading state
+    }
+  }, [user?._id]); // Only trigger when user ID actually changes
 
   const cancelOrder = async (orderId: string) => {
     Alert.alert(
