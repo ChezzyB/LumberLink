@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { 
   View, 
   FlatList, 
@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import { AuthContext } from '@/context/AuthContext';
 import { useMill } from '@/context/MillContext';
@@ -48,51 +49,126 @@ export default function InventoryScreen() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [orderQuantity, setOrderQuantity] = useState('1');
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [currentMill, setCurrentMill] = useState<any>(null); // Add local mill state
 
   const { user, token } = useContext(AuthContext);
   const { selectedMill } = useMill();
   const { theme } = useStyleTheme();
 
-  useEffect(() => {
-    console.log('Selected mill:', selectedMill);
-    console.log('User:', user);
+  // Function to refresh mill data
+  const refreshMillData = useCallback(() => {
     if (selectedMill) {
-      fetchInventory();
+      console.log('Refreshing mill data for:', selectedMill.name);
+      setCurrentMill({ ...selectedMill }); // Create a fresh copy
+    } else {
+      console.log('No mill selected, clearing current mill');
+      setCurrentMill(null);
     }
   }, [selectedMill]);
 
-  const fetchInventory = async () => {
-    console.log('Fetching inventory for mill:', selectedMill?._id);
-    if (!selectedMill) return;
+  const fetchInventory = useCallback(async () => {
+    if (!selectedMill || !user || !token) {
+      console.log('Missing requirements for inventory fetch:', { 
+        selectedMill: !!selectedMill, 
+        user: !!user, 
+        token: !!token 
+      });
+      setInventory([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log('=== INVENTORY DEBUG ===');
+    console.log('Current user:', user.email);
+    console.log('Selected mill:', selectedMill.name);
+    console.log('Fetching inventory for mill:', selectedMill._id);
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/inventory`, {
+      // Try mill-specific endpoint first
+      let response = await fetch(`${API_BASE_URL}/inventory/mill/${selectedMill._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
+      let inventory;
+      
       if (response.ok) {
-        const allInventory = await response.json();
-        console.log('All inventory:', allInventory);
-        // Filter inventory for selected mill using millId
-        const millInventory = allInventory.filter(
-          (item: InventoryItem) => item.millId === selectedMill._id
-        );
-        console.log('Filtered inventory:', millInventory);
-        setInventory(millInventory);
+        inventory = await response.json();
+        console.log('Mill inventory received:', inventory.length, 'items');
       } else {
-        Alert.alert('Error', 'Failed to fetch inventory');
+        // Fallback to all inventory and filter
+        console.log('Mill-specific endpoint failed, trying general endpoint');
+        response = await fetch(`${API_BASE_URL}/inventory`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const allInventory = await response.json();
+          inventory = allInventory.filter(
+            (item: InventoryItem) => item.millId === selectedMill._id
+          );
+          console.log('Filtered inventory:', inventory.length, 'items');
+        } else {
+          throw new Error('Both endpoints failed');
+        }
       }
+
+      setInventory(inventory);
+      
     } catch (error) {
       console.error('Error fetching inventory:', error);
       Alert.alert('Error', 'Failed to fetch inventory');
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMill, user, token]);
+
+  // This runs every time the user or mill changes
+  useEffect(() => {
+    console.log('User or mill changed, refreshing data...');
+    refreshMillData(); // Refresh mill data
+    fetchInventory();
+  }, [refreshMillData, fetchInventory]);
+
+  // This runs every time the Inventory tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Inventory tab focused, refreshing data...');
+      refreshMillData(); // Refresh mill data when tab is focused
+      fetchInventory();
+    }, [refreshMillData, fetchInventory])
+  );
+
+  // Clear inventory when user logs out or mill is deselected
+  useEffect(() => {
+    if (!user || !selectedMill) {
+      console.log('User logged out or mill deselected, clearing inventory');
+      setInventory([]);
+      setCart([]);
+      setShowOrderModal(false);
+      setSelectedItem(null);
+      setCurrentMill(null); // Clear current mill
+    }
+  }, [user, selectedMill]);
+
+  // Add this useEffect to immediately clear inventory when user changes
+  useEffect(() => {
+    if (user) {
+      console.log('User changed to:', user.email);
+      setInventory([]); // Clear old inventory immediately
+      setCart([]);
+      setShowOrderModal(false);
+      setSelectedItem(null);
+      setCurrentMill(null); // Clear current mill immediately
+      setLoading(true); // Show loading state
+    }
+  }, [user?._id]); // Only trigger when user ID actually changes
 
   const addToCart = (item: InventoryItem, quantity: number) => {
     if (quantity > item.quantity) {
@@ -194,11 +270,15 @@ export default function InventoryScreen() {
     </View>
   );
 
-  if (!selectedMill) {
+  // Update the early returns to use currentMill instead of selectedMill
+  if (!currentMill && !selectedMill) {
     return (
       <ThemedView style={styles.centered}>
         <ThemedText type="subtitle">Please select a mill first</ThemedText>
         <ThemedText>Go to the Mills tab to select a mill</ThemedText>
+        <ThemedText style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
+          Debug: selectedMill is {selectedMill ? 'set' : 'null'}, currentMill is {currentMill ? 'set' : 'null'}
+        </ThemedText>
       </ThemedView>
     );
   }
@@ -208,14 +288,27 @@ export default function InventoryScreen() {
       <ThemedView style={styles.centered}>
         <ActivityIndicator size="large" color={theme === 'dark' ? 'white' : 'black'} />
         <ThemedText>Loading inventory...</ThemedText>
+        {currentMill && (
+          <ThemedText style={{ fontSize: 12, opacity: 0.7, marginTop: 5 }}>
+            For: {currentMill.name}
+          </ThemedText>
+        )}
       </ThemedView>
     );
   }
 
+  // Use currentMill for display, fallback to selectedMill
+  const displayMill = currentMill || selectedMill;
+
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title" style={styles.title}>
-        Inventory - {selectedMill.name}
+        Inventory for: {displayMill?.name || 'Unknown Mill'}
+      </ThemedText>
+
+      {/* Debug info - remove this after testing */}
+      <ThemedText style={{ fontSize: 10, opacity: 0.5, textAlign: 'center', marginBottom: 10 }}>
+        Debug: Mill refreshed at {new Date().toLocaleTimeString()}
       </ThemedText>
 
       {cart.length > 0 && (
@@ -235,6 +328,12 @@ export default function InventoryScreen() {
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        // Add refresh control
+        refreshing={loading}
+        onRefresh={() => {
+          refreshMillData();
+          fetchInventory();
+        }}
       />
 
       {/* Order Modal */}

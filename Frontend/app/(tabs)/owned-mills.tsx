@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,13 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  SafeAreaView,
+  Platform,
+  StatusBar,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // Add this import
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '@/context/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -38,11 +44,14 @@ interface Mill {
 }
 
 export default function OwnedMillsScreen() {
-  const { user, token, fetchOwnedMills, ownedMills } = useContext(AuthContext);
   const { theme } = useStyleTheme();
-  const [isLoading, setIsLoading] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { user, token, ownedMills, fetchOwnedMills } = useContext(AuthContext);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [editingMill, setEditingMill] = useState<Mill | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFormLoading, setIsFormLoading] = useState(false);
   const [formData, setFormData] = useState({
     millNumber: '',
     name: '',
@@ -54,21 +63,73 @@ export default function OwnedMillsScreen() {
     email: '',
   });
 
-  useEffect(() => {
-    loadOwnedMills();
-  }, []);
+  const loadOwnedMills = useCallback(async () => {
+    if (!user || !token) {
+      console.log('No user or token found, clearing owned mills');
+      return;
+    }
 
-  const loadOwnedMills = async () => {
+    if (isLoading || modalVisible) return; // Don't load if already loading or modal is open
+    
+    console.log('=== OWNED MILLS DEBUG ===');
+    console.log('Loading owned mills for user:', user.email);
+
     setIsLoading(true);
     try {
       await fetchOwnedMills();
     } catch (error) {
       console.error('Error loading owned mills:', error);
-      Alert.alert('Error', 'Failed to load owned mills');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, token, fetchOwnedMills, isLoading, modalVisible]);
+
+  // This runs every time the user changes (login/logout/switch users)
+  useEffect(() => {
+    console.log('User changed, fetching owned mills...');
+    if (user && !modalVisible) {
+      loadOwnedMills();
+    }
+  }, [user]); // Removed loadOwnedMills from dependencies to prevent infinite loops
+
+  // This runs every time the Owned Mills tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Owned Mills tab focused, refreshing data...');
+      if (user && !modalVisible) {
+        loadOwnedMills();
+      }
+    }, [user, modalVisible]) // Don't include loadOwnedMills to avoid infinite loops
+  );
+
+  // Clear data when user logs out
+  useEffect(() => {
+    if (!user) {
+      console.log('User logged out, clearing owned mills data');
+      setModalVisible(false);
+      setEditingMill(null);
+      setFormData({
+        millNumber: '',
+        name: '',
+        city: '',
+        province: '',
+        latitude: '',
+        longitude: '',
+        phone: '',
+        email: '',
+      });
+    }
+  }, [user]);
+
+  // Add this useEffect to immediately clear data when user changes
+  useEffect(() => {
+    if (user) {
+      console.log('User changed to:', user.email);
+      setModalVisible(false); // Close any open modals
+      setEditingMill(null);
+      setIsLoading(true); // Show loading state
+    }
+  }, [user?._id]); // Only trigger when user ID actually changes
 
   const openCreateModal = () => {
     setEditingMill(null);
