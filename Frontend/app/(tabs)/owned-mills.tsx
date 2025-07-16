@@ -65,14 +65,10 @@ export default function OwnedMillsScreen() {
 
   const loadOwnedMills = useCallback(async () => {
     if (!user || !token) {
-      console.log('No user or token found, clearing owned mills');
       return;
     }
 
     if (isLoading || modalVisible) return; // Don't load if already loading or modal is open
-    
-    console.log('=== OWNED MILLS DEBUG ===');
-    console.log('Loading owned mills for user:', user.email);
 
     setIsLoading(true);
     try {
@@ -86,26 +82,23 @@ export default function OwnedMillsScreen() {
 
   // This runs every time the user changes (login/logout/switch users)
   useEffect(() => {
-    console.log('User changed, fetching owned mills...');
     if (user && !modalVisible) {
       loadOwnedMills();
     }
-  }, [user]); // Removed loadOwnedMills from dependencies to prevent infinite loops
+  }, [user]); 
 
   // This runs every time the Owned Mills tab comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log('Owned Mills tab focused, refreshing data...');
       if (user && !modalVisible) {
         loadOwnedMills();
       }
-    }, [user, modalVisible]) // Don't include loadOwnedMills to avoid infinite loops
+    }, [user, modalVisible])
   );
 
   // Clear data when user logs out
   useEffect(() => {
     if (!user) {
-      console.log('User logged out, clearing owned mills data');
       setModalVisible(false);
       setEditingMill(null);
       setFormData({
@@ -121,10 +114,9 @@ export default function OwnedMillsScreen() {
     }
   }, [user]);
 
-  // Add this useEffect to immediately clear data when user changes
+  // useEffect to immediately clear data when user changes
   useEffect(() => {
     if (user) {
-      console.log('User changed to:', user.email);
       setModalVisible(false); // Close any open modals
       setEditingMill(null);
       setIsLoading(true); // Show loading state
@@ -221,7 +213,6 @@ export default function OwnedMillsScreen() {
 
       await loadOwnedMills();
     } catch (error) {
-      console.error('Error saving mill:', error);
       Alert.alert('Error', (error instanceof Error && error.message) ? error.message : 'Failed to save mill');
     } finally {
       setIsLoading(false);

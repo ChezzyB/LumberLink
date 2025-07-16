@@ -51,19 +51,10 @@ export default function OrdersScreen() {
   // Remove the old useEffect and replace with this:
   const fetchOrders = useCallback(async () => {
     if (!user) {
-      console.log('No user found, clearing orders');
       setOrders([]);
       setLoading(false);
       return;
     }
-
-    console.log('=== ORDERS DEBUG ===');
-    console.log('Current logged in user:', user);
-    console.log('Current user ID:', user._id);
-    console.log('Current user email:', user.email);
-    console.log('Expected user ID for Kristen:', '68745d5f2f0b8be487c35d06');
-    console.log('Chesney user ID (should NOT match):', '6872e6dc3057f00c9a3a23d8');
-    console.log('API call URL:', `${API_BASE_URL}/orders/user/${user._id}`);
 
     try {
       setLoading(true);
@@ -74,28 +65,13 @@ export default function OrdersScreen() {
         },
       });
 
-      console.log('Response status:', response.status);
-
       if (response.ok) {
         const ordersData = await response.json();
-        console.log('Raw orders response:', ordersData);
-        console.log('Number of orders returned:', ordersData.length);
-        
-        // Log each order's userId
-        ordersData.forEach((order: Order, index: number) => {
-          console.log(`Order ${index + 1}:`, {
-            orderId: order._id,
-            userId: order.userId,
-            isCurrentUser: order.userId === user._id
-          });
-        });
-        
         setOrders(ordersData.sort((a: Order, b: Order) => 
           new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime()
         ));
       } else {
         const errorText = await response.text();
-        console.log('Error response:', errorText);
         Alert.alert('Error', 'Failed to fetch orders');
       }
     } catch (error) {
@@ -109,14 +85,12 @@ export default function OrdersScreen() {
 
   // This runs every time the user changes (login/logout/switch users)
   useEffect(() => {
-    console.log('User changed, fetching orders...');
     fetchOrders();
   }, [fetchOrders]);
 
   // This runs every time the Orders tab comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log('Orders tab focused, refreshing data...');
       fetchOrders();
     }, [fetchOrders])
   );
@@ -124,7 +98,6 @@ export default function OrdersScreen() {
   // Clear orders when user logs out
   useEffect(() => {
     if (!user) {
-      console.log('User logged out, clearing orders');
       setOrders([]);
     }
   }, [user]);
@@ -132,9 +105,8 @@ export default function OrdersScreen() {
   // Add this useEffect to immediately clear orders when user changes
   useEffect(() => {
     if (user) {
-      console.log('User changed to:', user.email);
-      setOrders([]); // Clear old orders immediately
-      setLoading(true); // Show loading state
+      setOrders([]);
+      setLoading(true);
     }
   }, [user?._id]); // Only trigger when user ID actually changes
 

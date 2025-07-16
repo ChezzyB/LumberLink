@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native'; // Add this import
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useContext } from 'react';
 import { AuthContext } from '@/context/AuthContext';
@@ -10,23 +10,6 @@ export default function TabsLayout() {
   const { user, ownedMills } = useContext(AuthContext);
   const { theme } = useStyleTheme();
   const router = useRouter();
-
-  // Handle user changes in layout
-  useEffect(() => {
-    if (user) {
-      console.log('=== LAYOUT DEBUG ===');
-      console.log('User changed in layout:', user.email);
-    } else {
-      console.log('User logged out in layout');
-    }
-  }, [user?._id]); // Only trigger when user ID actually changes
-
-  // Handle tab focus changes
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Tab layout focused');
-    }, [])
-  );
 
   // Handle automatic redirection based on auth state
   useEffect(() => {
@@ -44,7 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          href: null, // Always hidden since it's just a redirect
+          href: null,
         }}
       />
       

@@ -9,7 +9,7 @@ import {
   TextInput,
   ActivityIndicator 
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native'; // Add this import
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import { AuthContext } from '@/context/AuthContext';
@@ -44,7 +44,7 @@ export default function MillsScreen() {
   const [filteredMills, setFilteredMills] = useState<Mill[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchCity, setSearchCity] = useState('');
-  const [maxDistance, setMaxDistance] = useState('50');
+  const [maxDistance, setMaxDistance] = useState('');
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   
   const { token, user } = useContext(AuthContext);
@@ -71,15 +71,10 @@ export default function MillsScreen() {
 
   const fetchMills = useCallback(async () => {
     if (!user || !token) {
-      console.log('No user or token found, clearing mills');
       setMills([]);
       setLoading(false);
       return;
     }
-
-    console.log('=== MILLS DEBUG ===');
-    console.log('Current user:', user.email);
-    console.log('Fetching mills...');
 
     try {
       setLoading(true);
@@ -90,11 +85,8 @@ export default function MillsScreen() {
         },
       });
 
-      console.log('Mills response status:', response.status);
-
       if (response.ok) {
         const millsData = await response.json();
-        console.log('Received mills:', millsData.length);
         setMills(millsData);
       } else {
         Alert.alert('Error', 'Failed to fetch mills');
@@ -157,7 +149,6 @@ export default function MillsScreen() {
 
   // This runs every time the user changes (login/logout/switch users)
   useEffect(() => {
-    console.log('User changed, fetching mills...');
     fetchMills();
     getCurrentLocation();
   }, [fetchMills, getCurrentLocation]);
@@ -165,7 +156,6 @@ export default function MillsScreen() {
   // This runs every time the Mills tab comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log('Mills tab focused, refreshing data...');
       fetchMills();
     }, [fetchMills])
   );
@@ -173,22 +163,20 @@ export default function MillsScreen() {
   // Clear mills when user logs out
   useEffect(() => {
     if (!user) {
-      console.log('User logged out, clearing mills');
       setMills([]);
       setFilteredMills([]);
       setSelectedMill(null);
     }
   }, [user, setSelectedMill]);
 
-  // Add this useEffect to immediately clear mills when user changes
+  // Immediately clear mills when user changes
   useEffect(() => {
     if (user) {
-      console.log('User changed to:', user.email);
-      setMills([]); // Clear old mills immediately
+      setMills([]);
       setFilteredMills([]);
-      setLoading(true); // Show loading state
+      setLoading(true);
     }
-  }, [user?._id]); // Only trigger when user ID actually changes
+  }, [user?._id]);
 
   useEffect(() => {
     filterMills();
@@ -230,7 +218,6 @@ export default function MillsScreen() {
         </ThemedText>
       )}
 
-      {/* Fix: Add null checks for contact object */}
       {item.contact?.phone && (
         <ThemedText style={styles.contact}>📞 {item.contact.phone}</ThemedText>
       )}
@@ -285,7 +272,7 @@ export default function MillsScreen() {
             color: theme === 'dark' ? '#fff' : '#000',
             borderColor: theme === 'dark' ? '#555' : '#ddd'
           }]}
-          placeholder="Max distance (km)"
+          placeholder="Distance km"
           placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
           value={maxDistance}
           onChangeText={setMaxDistance}

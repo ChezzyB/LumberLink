@@ -58,12 +58,10 @@ export default function InventoryScreen() {
   // Function to fetch fresh mill data from database
   const fetchFreshMillData = useCallback(async () => {
     if (!selectedMill?._id || !token) {
-      console.log('No mill selected or no token for fresh mill fetch');
       return null;
     }
 
     try {
-      console.log('Fetching fresh mill data for:', selectedMill._id);
       const response = await fetch(`${API_BASE_URL}/mills/${selectedMill._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -73,10 +71,8 @@ export default function InventoryScreen() {
 
       if (response.ok) {
         const freshMillData = await response.json();
-        console.log('Fresh mill data received:', freshMillData.name);
         return freshMillData;
       } else {
-        console.log('Failed to fetch fresh mill data, using cached');
         return selectedMill;
       }
     } catch (error) {
@@ -88,40 +84,25 @@ export default function InventoryScreen() {
   // Function to refresh mill data
   const refreshMillData = useCallback(async () => {
     if (selectedMill) {
-      console.log('Refreshing mill data for:', selectedMill.name);
-      
-      // Try to get fresh data from database first
       const freshMill = await fetchFreshMillData();
       
       if (freshMill) {
         setCurrentMill({ ...freshMill, _refreshed: Date.now() });
-        console.log('Updated current mill to:', freshMill.name);
       } else {
         // Fallback to context data
         setCurrentMill({ ...selectedMill, _refreshed: Date.now() });
       }
     } else {
-      console.log('No mill selected, clearing current mill');
       setCurrentMill(null);
     }
   }, [selectedMill, fetchFreshMillData]);
 
   const fetchInventory = useCallback(async () => {
     if (!selectedMill || !user || !token) {
-      console.log('Missing requirements for inventory fetch:', { 
-        selectedMill: !!selectedMill, 
-        user: !!user, 
-        token: !!token 
-      });
       setInventory([]);
       setLoading(false);
       return;
     }
-
-    console.log('=== INVENTORY DEBUG ===');
-    console.log('Current user:', user.email);
-    console.log('Selected mill:', selectedMill.name);
-    console.log('Fetching inventory for mill:', selectedMill._id);
 
     try {
       setLoading(true);
@@ -137,10 +118,8 @@ export default function InventoryScreen() {
       
       if (response.ok) {
         inventory = await response.json();
-        console.log('Mill inventory received:', inventory.length, 'items');
       } else {
         // Fallback to all inventory and filter
-        console.log('Mill-specific endpoint failed, trying general endpoint');
         response = await fetch(`${API_BASE_URL}/inventory`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -153,7 +132,6 @@ export default function InventoryScreen() {
           inventory = allInventory.filter(
             (item: InventoryItem) => item.millId === selectedMill._id
           );
-          console.log('Filtered inventory:', inventory.length, 'items');
         } else {
           throw new Error('Both endpoints failed');
         }
@@ -171,7 +149,6 @@ export default function InventoryScreen() {
 
   // This runs every time the user or mill changes
   useEffect(() => {
-    console.log('User or mill changed, refreshing data...');
     refreshMillData(); // Refresh mill data
     fetchInventory();
   }, [selectedMill?._id, user?._id]); // Use specific IDs to avoid infinite loops
@@ -324,9 +301,6 @@ export default function InventoryScreen() {
       <ThemedView style={styles.centered}>
         <ThemedText type="subtitle">Please select a mill first</ThemedText>
         <ThemedText>Go to the Mills tab to select a mill</ThemedText>
-        <ThemedText style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
-          Debug: selectedMill is {selectedMill ? 'set' : 'null'}, currentMill is {currentMill ? 'set' : 'null'}
-        </ThemedText>
       </ThemedView>
     );
   }
@@ -352,12 +326,6 @@ export default function InventoryScreen() {
     <ThemedView style={styles.container}>
       <ThemedText type="title" style={styles.title}>
         Inventory for: {displayMill?.name || 'Unknown Mill'}
-      </ThemedText>
-
-      {/* Debug info - remove this after testing */}
-      <ThemedText style={{ fontSize: 10, opacity: 0.5, textAlign: 'center', marginBottom: 10 }}>
-        Debug: Mill refreshed at {new Date().toLocaleTimeString()}
-        {currentMill?._refreshed && ` (ID: ${currentMill._id.slice(-6)})`}
       </ThemedText>
 
       {cart.length > 0 && (

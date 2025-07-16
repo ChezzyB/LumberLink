@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:unit": "jest --testPathPattern='(controllers|models|middleware)'",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
@@ -21,6 +25,9 @@
     "mongoose": "^8.16.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^10.1.4",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.3"
   }
 }
