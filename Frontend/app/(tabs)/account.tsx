@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { 
   View, 
   TextInput, 
@@ -9,6 +9,7 @@ import {
   Modal 
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '@/context/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -30,6 +31,28 @@ export default function AccountScreen() {
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Refresh user data when tab is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user) {
+        setEditedUser({
+          username: user.username || '',
+          email: user.email || ''
+        });
+      }
+    }, [user])
+  );
+
+  // Also update when user changes
+  useEffect(() => {
+    if (user) {
+      setEditedUser({
+        username: user.username || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
 
   const handleSaveProfile = async () => {
     try {

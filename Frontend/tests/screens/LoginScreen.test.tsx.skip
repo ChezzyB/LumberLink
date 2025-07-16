@@ -1,0 +1,180 @@
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import LoginScreen from '../../app/(tabs)/login';
+import { AuthContext } from '../../context/AuthContext';
+
+// Mock dependencies
+jest.mock('expo-router', () => ({
+  router: {
+    replace: jest.fn(),
+    push: jest.fn()
+  }
+}));
+
+jest.mock('../../context/ThemeContext', () => ({
+  useStyleTheme: () => ({ theme: 'light' })
+}));
+
+// Mock Alert properly
+const mockAlert = {
+  alert: jest.fn()
+};
+
+// Mock React Native Alert
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  return {
+    ...RN,
+    Alert: mockAlert
+  };
+});
+
+describe('LoginScreen', () => {
+  const mockAuthContext = {
+    user: null,
+    token: null,
+    ownedMills: [],
+    isLoading: false,
+    login: jest.fn(),
+    logout: jest.fn(),
+    register: jest.fn(),
+    updateUser: jest.fn(),
+    changePassword: jest.fn(),
+    fetchOwnedMills: jest.fn()
+  };
+
+  const renderWithContext = (contextValue = mockAuthContext) => {
+    return render(
+      <AuthContext.Provider value={contextValue}>
+        <LoginScreen />
+      </AuthContext.Provider>
+    );
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAlert.alert.mockClear();
+  });
+
+  it('renders login form correctly', () => {
+    const { getByPlaceholderText, getByText } = renderWithContext();
+    
+    expect(getByPlaceholderText('Email')).toBeTruthy();
+    expect(getByPlaceholderText('Password')).toBeTruthy();
+    expect(getByText('Login')).toBeTruthy();
+    expect(getByText("Don't have an account? Register here")).toBeTruthy();
+  });
+
+  it('handles email input', () => {
+    const { getByPlaceholderText } = renderWithContext();
+    const emailInput = getByPlaceholderText('Email');
+    
+    fireEvent.changeText(emailInput, 'test@example.com');
+    expect(emailInput.props.value).toBe('test@example.com');
+  });
+
+  it('handles password input', () => {
+    const { getByPlaceholderText } = renderWithContext();
+    const passwordInput = getByPlaceholderText('Password');
+    
+    fireEvent.changeText(passwordInput, 'password123');
+    expect(passwordInput.props.value).toBe('password123');
+  });
+
+  it('calls login function when form is submitted', async () => {
+    const mockLogin = jest.fn().mockResolvedValue(undefined);
+    const contextWithMockLogin = {
+      ...mockAuthContext,
+      login: mockLogin
+    };
+
+    const { getByPlaceholderText, getByText } = renderWithContext(contextWithMockLogin);
+    
+    // Fill in the form
+    fireEvent.changeText(getByPlaceholderText('Email'), 'test@example.com');
+    fireEvent.changeText(getByPlaceholderText('Password'), 'password123');
+    
+    // Press login button immediately, don't wrap in waitFor
+    fireEvent.press(getByText('Login'));
+
+    // Wait for the login function to be called
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
+    }, { timeout: 3000 });
+  });
+
+  it('shows loading state when submitting', async () => {
+    let resolveLogin: () => void;
+    const mockLogin = jest.fn().mockImplementation(() => 
+      new Promise<void>((resolve) => {
+        resolveLogin = resolve;
+      })
+    );
+    
+    const contextWithMockLogin = {
+      ...mockAuthContext,
+      login: mockLogin
+    };
+
+    const { getByPlaceholderText, getByText, queryByText } = renderWithContext(contextWithMockLogin);
+    
+    // Fill in the form
+    fireEvent.changeText(getByPlaceholderText('Email'), 'test@example.com');
+    fireEvent.changeText(getByPlaceholderText('Password'), 'password123');
+    
+    // Press login button
+    fireEvent.press(getByText('Login'));
+
+    // Check for loading text immediately after press
+    await waitFor(() => {
+      expect(queryByText('Logging in...')).toBeTruthy();
+    }, { timeout: 1000 });
+
+    // Resolve the login to prevent hanging
+    resolveLogin!();
+  });
+
+  it('shows error when fields are empty', async () => {
+    const { getByText } = renderWithContext();
+    
+    // Press login with empty fields
+    fireEvent.press(getByText('Login'));
+
+    // Wait for alert to be called
+    await waitFor(() => {
+      expect(mockAlert.alert).toHaveBeenCalledWith('Error', 'Please fill in all fields');
+    }, { timeout: 1000 });
+  });
+
+  it('handles login error', async () => {
+    const mockLogin = jest.fn().mockRejectedValue(new Error('Invalid credentials'));
+    
+    const contextWithMockLogin = {
+      ...mockAuthContext,
+      login: mockLogin
+    };
+
+    const { getByPlaceholderText, getByText } = renderWithContext(contextWithMockLogin);
+    
+    // Fill in the form
+    fireEvent.changeText(getByPlaceholderText('Email'), 'test@example.com');
+    fireEvent.changeText(getByPlaceholderText('Password'), 'wrongpassword');
+    
+    // Press login button
+    fireEvent.press(getByText('Login'));
+
+    // Wait for error alert
+    await waitFor(() => {
+      expect(mockAlert.alert).toHaveBeenCalledWith('Error', 'Invalid credentials');
+    }, { timeout: 3000 });
+  });
+
+  it('navigates to register screen when register link is pressed', () => {
+    const { router } = require('expo-router');
+    const { getByText } = renderWithContext();
+    
+    fireEvent.press(getByText("Don't have an account? Register here"));
+    
+    expect(router.push).toHaveBeenCalledWith('/register');
+  });
+});

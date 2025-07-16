@@ -156,7 +156,6 @@ export default function InventoryScreen() {
   // This runs every time the Inventory tab comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log('Inventory tab focused, refreshing data...');
       
       // Always refresh mill data when tab is focused
       refreshMillData();
@@ -173,7 +172,6 @@ export default function InventoryScreen() {
   // Clear inventory when user logs out or mill is deselected
   useEffect(() => {
     if (!user || !selectedMill) {
-      console.log('User logged out or mill deselected, clearing inventory');
       setInventory([]);
       setCart([]);
       setShowOrderModal(false);
@@ -185,7 +183,6 @@ export default function InventoryScreen() {
   // Add this useEffect to immediately clear inventory when user changes
   useEffect(() => {
     if (user) {
-      console.log('User changed to:', user.email);
       setInventory([]);
       setCart([]);
       setShowOrderModal(false);
@@ -258,7 +255,6 @@ export default function InventoryScreen() {
         Alert.alert('Error', errorData.error || 'Failed to place order');
       }
     } catch (error) {
-      console.error('Error placing order:', error);
       Alert.alert('Error', 'Failed to place order');
     }
   };

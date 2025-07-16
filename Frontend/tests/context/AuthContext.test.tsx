@@ -5,9 +5,18 @@ import { Text } from 'react-native';
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
+  getItem: jest.fn(() => Promise.resolve(null)),
+  setItem: jest.fn(() => Promise.resolve()),
+  removeItem: jest.fn(() => Promise.resolve()),
+}));
+
+// Mock Constants
+jest.mock('expo-constants', () => ({
+  expoConfig: {
+    extra: {
+      apiBaseUrl: 'http://localhost:3000/api'
+    }
+  }
 }));
 
 // Mock fetch
@@ -16,6 +25,7 @@ global.fetch = jest.fn();
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (global.fetch as jest.Mock).mockClear();
   });
 
   it('provides initial context values', () => {
@@ -47,13 +57,18 @@ describe('AuthContext', () => {
   it('handles successful login', async () => {
     const mockResponse = {
       ok: true,
-      json: () => Promise.resolve({
+      json: jest.fn().mockResolvedValue({
         token: 'mock-token',
-        user: { id: '1', email: 'test@example.com' }
+        user: { _id: '1', email: 'test@example.com', username: 'testuser' }
       })
     };
 
-    (fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(mockResponse) // For login
+      .mockResolvedValueOnce({ // For fetchOwnedMills
+        ok: true,
+        json: jest.fn().mockResolvedValue([])
+      });
 
     let contextValue: any;
 
@@ -76,17 +91,21 @@ describe('AuthContext', () => {
       await contextValue.login('test@example.com', 'password');
     });
 
-    expect(contextValue.user).toEqual({ id: '1', email: 'test@example.com' });
+    expect(contextValue.user).toEqual({ 
+      _id: '1', 
+      email: 'test@example.com', 
+      username: 'testuser' 
+    });
     expect(contextValue.token).toBe('mock-token');
   });
 
   it('handles login failure', async () => {
     const mockResponse = {
       ok: false,
-      json: () => Promise.resolve({ error: 'Invalid credentials' })
+      json: jest.fn().mockResolvedValue({ error: 'Invalid credentials' })
     };
 
-    (fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
+    (global.fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
     let contextValue: any;
     let thrownError: any;
@@ -115,7 +134,60 @@ describe('AuthContext', () => {
     }
 
     expect(thrownError).toBeDefined();
+    expect(thrownError.message).toBe('Invalid credentials');
     expect(contextValue.user).toBeNull();
     expect(contextValue.token).toBeNull();
+  });
+
+  it('handles logout', async () => {
+    // First login
+    const mockLoginResponse = {
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        token: 'mock-token',
+        user: { _id: '1', email: 'test@example.com', username: 'testuser' }
+      })
+    };
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(mockLoginResponse) // For login
+      .mockResolvedValueOnce({ // For fetchOwnedMills
+        ok: true,
+        json: jest.fn().mockResolvedValue([])
+      });
+
+    let contextValue: any;
+
+    const TestComponent = () => (
+      <AuthContext.Consumer>
+        {(value) => {
+          contextValue = value;
+          return <Text>Test</Text>;
+        }}
+      </AuthContext.Consumer>
+    );
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    // Login first
+    await act(async () => {
+      await contextValue.login('test@example.com', 'password');
+    });
+
+    expect(contextValue.user).toBeTruthy();
+    expect(contextValue.token).toBeTruthy();
+
+    // Then logout
+    await act(async () => {
+      await contextValue.logout();
+    });
+
+    expect(contextValue.user).toBeNull();
+    expect(contextValue.token).toBeNull();
+    expect(contextValue.ownedMills).toEqual([]);
   });
 });
