@@ -191,7 +191,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (response.ok) {
         const mills = await response.json();
-        console.log('Owned mills:', mills); // Debug log
         setOwnedMills(mills);
       } else {
         console.error('Failed to fetch owned mills');

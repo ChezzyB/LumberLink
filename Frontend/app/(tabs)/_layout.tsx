@@ -93,8 +93,9 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="business-outline" size={size || 24} color={color} />
           ),
-          href: (!user || ownedMills.length === 0) ? null : '/owned-mills',
-        }}        
+          //href: (!user || ownedMills.length === 0) ? null : '/owned-mills',
+          href: !user ? null : '/owned-mills',
+        }}
       />
 
       <Tabs.Screen

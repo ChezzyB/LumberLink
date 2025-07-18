@@ -15,7 +15,7 @@ import {
   StatusBar,
   KeyboardAvoidingView,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native'; // Add this import
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '@/context/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
@@ -43,13 +43,28 @@ interface Mill {
   createdAt: string;
 }
 
+interface InventoryFormData {
+  length: string;
+  dimensions: string;
+  species: string;
+  grade: string;
+  dryingLevel: string;
+  quantity: string;
+  unit: string;
+  priceAmount: string;
+  priceType: string;
+  notes: string;
+}
+
 export default function OwnedMillsScreen() {
   const { theme } = useStyleTheme();
   const insets = useSafeAreaInsets();
   const { user, token, ownedMills, fetchOwnedMills } = useContext(AuthContext);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [inventoryModalVisible, setInventoryModalVisible] = useState(false);
   const [editingMill, setEditingMill] = useState<Mill | null>(null);
+  const [selectedMillForInventory, setSelectedMillForInventory] = useState<Mill | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFormLoading, setIsFormLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -62,13 +77,25 @@ export default function OwnedMillsScreen() {
     phone: '',
     email: '',
   });
+  const [inventoryFormData, setInventoryFormData] = useState<InventoryFormData>({
+    length: '',
+    dimensions: '',
+    species: '',
+    grade: '',
+    dryingLevel: '',
+    quantity: '',
+    unit: 'pieces',
+    priceAmount: '',
+    priceType: 'per piece',
+    notes: '',
+  });
 
   const loadOwnedMills = useCallback(async () => {
     if (!user || !token) {
       return;
     }
 
-    if (isLoading || modalVisible) return; // Don't load if already loading or modal is open
+    if (isLoading || modalVisible) return;
 
     setIsLoading(true);
     try {
@@ -100,7 +127,9 @@ export default function OwnedMillsScreen() {
   useEffect(() => {
     if (!user) {
       setModalVisible(false);
+      setInventoryModalVisible(false);
       setEditingMill(null);
+      setSelectedMillForInventory(null);
       setFormData({
         millNumber: '',
         name: '',
@@ -111,17 +140,35 @@ export default function OwnedMillsScreen() {
         phone: '',
         email: '',
       });
+      resetInventoryForm();
     }
   }, [user]);
 
   // useEffect to immediately clear data when user changes
   useEffect(() => {
     if (user) {
-      setModalVisible(false); // Close any open modals
+      setModalVisible(false);
+      setInventoryModalVisible(false);
       setEditingMill(null);
-      setIsLoading(true); // Show loading state
+      setSelectedMillForInventory(null);
+      setIsLoading(true);
     }
-  }, [user?._id]); // Only trigger when user ID actually changes
+  }, [user?._id]);
+
+  const resetInventoryForm = () => {
+    setInventoryFormData({
+      length: '',
+      dimensions: '',
+      species: '',
+      grade: '',
+      dryingLevel: '',
+      quantity: '',
+      unit: 'pieces',
+      priceAmount: '',
+      priceType: 'per piece',
+      notes: '',
+    });
+  };
 
   const openCreateModal = () => {
     setEditingMill(null);
@@ -151,6 +198,12 @@ export default function OwnedMillsScreen() {
       email: mill.contact.email || '',
     });
     setModalVisible(true);
+  };
+
+  const openInventoryModal = (mill: Mill) => {
+    setSelectedMillForInventory(mill);
+    resetInventoryForm();
+    setInventoryModalVisible(true);
   };
 
   const handleSaveMill = async () => {
@@ -219,6 +272,74 @@ export default function OwnedMillsScreen() {
     }
   };
 
+  const handleSaveInventory = async () => {
+    if (!selectedMillForInventory || !inventoryFormData.length || !inventoryFormData.dimensions || 
+        !inventoryFormData.species || !inventoryFormData.grade || !inventoryFormData.dryingLevel || 
+        !inventoryFormData.quantity || !inventoryFormData.priceAmount) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    const quantity = parseInt(inventoryFormData.quantity);
+    const priceAmount = parseFloat(inventoryFormData.priceAmount);
+
+    if (isNaN(quantity) || quantity <= 0) {
+      Alert.alert('Error', 'Please enter a valid quantity');
+      return;
+    }
+
+    if (isNaN(priceAmount) || priceAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid price');
+      return;
+    }
+
+    setIsFormLoading(true);
+    try {
+      const inventoryData = {
+        millId: selectedMillForInventory._id,
+        length: inventoryFormData.length,
+        dimensions: inventoryFormData.dimensions,
+        species: inventoryFormData.species,
+        grade: inventoryFormData.grade,
+        dryingLevel: inventoryFormData.dryingLevel,
+        manufactureDate: new Date(),
+        quantity,
+        unit: inventoryFormData.unit,
+        price: {
+          amount: priceAmount,
+          type: inventoryFormData.priceType,
+        },
+        notes: inventoryFormData.notes || undefined,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/inventory`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(inventoryData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add inventory');
+      }
+
+      Alert.alert(
+        'Success',
+        'Inventory added successfully',
+        [{ text: 'OK', onPress: () => setInventoryModalVisible(false) }]
+      );
+
+      resetInventoryForm();
+    } catch (error) {
+      Alert.alert('Error', (error instanceof Error && error.message) ? error.message : 'Failed to add inventory');
+    } finally {
+      setIsFormLoading(false);
+    }
+  };
+
   const handleDeleteMill = (mill: Mill) => {
     Alert.alert(
       'Delete Mill',
@@ -279,6 +400,13 @@ export default function OwnedMillsScreen() {
       )}
       
       <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.inventoryButton]}
+          onPress={() => openInventoryModal(item)}
+        >
+          <Text style={styles.buttonText}>Add Inventory</Text>
+        </TouchableOpacity>
+        
         <TouchableOpacity
           style={[styles.actionButton, styles.editButton]}
           onPress={() => openEditModal(item)}
@@ -493,6 +621,190 @@ export default function OwnedMillsScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Add Inventory Modal */}
+      <Modal
+        visible={inventoryModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme === 'dark' ? '#000' : '#fff' }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setInventoryModalVisible(false)}>
+              <Text style={[styles.cancelButton, { color: theme === 'dark' ? '#fff' : '#007AFF' }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <ThemedText type="subtitle">
+              Add Inventory
+            </ThemedText>
+            <TouchableOpacity onPress={handleSaveInventory} disabled={isFormLoading}>
+              <Text style={[styles.saveButton, { 
+                color: isFormLoading ? '#999' : '#007AFF',
+                opacity: isFormLoading ? 0.6 : 1 
+              }]}>
+                {isFormLoading ? 'Adding...' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.formContainer}>
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Length *
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.length}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, length: text })}
+              placeholder="e.g., 8', 10', 12'"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Dimensions *
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.dimensions}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, dimensions: text })}
+              placeholder="e.g., 2x4, 2x6, 2x8"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Species *
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.species}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, species: text })}
+              placeholder="e.g., SPF, Douglas Fir"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Grade *
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.grade}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, grade: text })}
+              placeholder="e.g., #2 and better, #3"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Drying Level *
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.dryingLevel}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, dryingLevel: text })}
+              placeholder="e.g., KDHT, HT, GR"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Quantity *
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.quantity}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, quantity: text })}
+              placeholder="Enter quantity"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+              keyboardType="numeric"
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Unit
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.unit}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, unit: text })}
+              placeholder="e.g., pieces, bundles, mbf"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Price Amount *
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.priceAmount}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, priceAmount: text })}
+              placeholder="Enter price amount"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+              keyboardType="numeric"
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Price Type
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.priceType}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, priceType: text })}
+              placeholder="e.g., per piece, per board foot"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+            />
+
+            <Text style={[styles.label, { color: theme === 'dark' ? '#fff' : '#000' }]}>
+              Notes
+            </Text>
+            <TextInput
+              style={[styles.input, styles.textArea, {
+                backgroundColor: theme === 'dark' ? '#333' : '#f5f5f5',
+                color: theme === 'dark' ? '#fff' : '#000',
+                borderColor: theme === 'dark' ? '#555' : '#ddd'
+              }]}
+              value={inventoryFormData.notes}
+              onChangeText={(text) => setInventoryFormData({ ...inventoryFormData, notes: text })}
+              placeholder="Optional notes about this inventory"
+              placeholderTextColor={theme === 'dark' ? '#999' : '#666'}
+              multiline
+              numberOfLines={3}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -578,6 +890,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
   },
+  inventoryButton: {
+    backgroundColor: '#28a745',
+  },
   editButton: {
     backgroundColor: '#007AFF',
   },
@@ -586,7 +901,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   modalContainer: {
@@ -623,5 +938,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 15,
     fontSize: 16,
+  },
+  textArea: {
+    height: 100,
+    paddingTop: 15,
+    textAlignVertical: 'top',
   },
 });
