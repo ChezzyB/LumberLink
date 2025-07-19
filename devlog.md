@@ -139,7 +139,7 @@ For the mill data challenge, I'm planning a multi-step approach:
 This will be a significant undertaking but essential for platform credibility.
 
 ## Screenshots
-*[Would include app screenshots here showing the mill management, inventory listing, and order workflows]*
+
 
 ---
 
