@@ -1,46 +1,49 @@
 {
   "expo": {
     "name": "LumberLink",
-    "slug": "LumberLink",
+    "slug": "lumberlink",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "lumberlink",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.chesneybrooke.lumberlink"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "package": "com.chesneybrooke.lumberlink",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "weatherApiKey": "774e97346d4bb1c773475855b2324f26",
-      "apiBaseUrl": "http://10.0.0.68:5000/api"
-    }
+      "apiBaseUrl": "https://lumberlink-backend.onrender.com/api",
+      "router": {},
+      "eas": {
+        "projectId": "5ff404d6-269d-472a-a211-433fb6aa7190"
+      }
+    },
+    "owner": "chesneybrooke"
   }
 }
